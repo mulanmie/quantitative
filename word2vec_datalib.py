@@ -6,7 +6,6 @@ import re
 import os.path
 import pandas as pd
 
-
 def read_day_universe_stock(date):
     path1 = '/data/remoteDir/server_200/universe/'
     codes = []
@@ -32,29 +31,35 @@ def read_every_ten_ticks():
     return re_ticks
 
 def read_day_tick_data(date):
-    path = '/data/dataDisk1/mulan/work/'
+    path = '/data/dataDisk1/mulan/work/work1/'
     tag_all = ['last', 'bid1', 'ask1', 'bid_vol1', 'bid_vol2', 'bid_vol3', 'bid_vol4', 'bid_vol5', 'bid_vol6',
                'bid_vol7', 'bid_vol8', 'bid_vol9','bid_vol10', 'ask_vol1', 'ask_vol2', 'ask_vol3', 'ask_vol4',
                'ask_vol5', 'ask_vol6', 'ask_vol7', 'ask_vol8', 'ask_vol9', 'ask_vol10', 'totoff', 'totbid',
-               'amount', 'vol', 'trade', 'low', 'high', 'open']
+               'amount', 'vol', 'trade']
     #tag_all = ['last', 'bid1']
     tag_accum = ['amount', 'trade', 'vol', 'totbid', 'totoff']
     tag_dtype_int64 = ['totoff', 'vol', 'totbid', 'amount']
     num_tag = len(tag_all)
-    num_codes = 2000
-    #num_codes = 1
+    num_codes = 3627
     num_ticks = 481
-    one_day_array_data = np.zeros((num_tag,2000,num_ticks))
-    data_x = []
-    codes = read_day_universe_stock(date)
+    one_day_array_data = np.zeros((num_tag,3627,num_ticks))
+    stock_code_path = '/data/remoteDir/server_200/mem_data'
+    col_path = os.path.join(stock_code_path, '.index/code.csv')
+    col = pd.read_csv(col_path, dtype={'stock_code': str}).set_index('stock_code')['idx']
+    codes_index = col.index.tolist()       #record the location of codes having Nan
+    print(len(codes_index))
+    #codes = read_day_universe_stock(date)
+    #print(codes)
     ticks = read_every_ten_ticks()
-    array_open = get_md(date, 'open', ticks=ticks, codes=codes, dtype='float32').T
+    #print(ticks)
+    #array_open = get_md(date, 'open', ticks=ticks, codes=codes, dtype='float32').T
+    #array_open = get_md(date, 'open', ticks=ticks, codes=None, dtype='float32').T
     for i,tag in enumerate(tag_all):
         if tag in tag_dtype_int64:
             dtype1 = 'int64'
         else:
             dtype1 = 'float32'
-        array_data1 = get_md(date, tag, ticks=ticks, codes=codes, dtype=dtype1).T.values #code*ticks
+        array_data1 = get_md(date, tag, ticks=ticks, codes=None, dtype=dtype1).T.values #code*ticks
         #array_data = array_data.sample(n=481,axis=0)
         #array_data1 = array_data.T.values 
         # print(array_data[0,:])
@@ -71,47 +76,54 @@ def read_day_tick_data(date):
         #print(one_day_array_data)
     windowsize = 11
     #for x
-    record = [] #record the location of codes having Nan
+    codes_record = []
     l = 0
+    num_codes = 100
+    x2 = []
     for j in range(num_codes):
         if len(np.nonzero(np.isnan(one_day_array_data[:,j,:]) == True)[0]) > 0:
         # if numpy.isnan(one_day_array_data[:,j,:]).any() == True:
         # if one_day_array_data[:,j,:].hasNaN() == True:
-            record.append(j)
             l += 1
             print(l)
         else:
+            codes_record.append(codes_index[j])
             for i in range(num_ticks-windowsize+1):
                 one_text_array = []
                 for k in range(windowsize):
                     if k != 5:
                         one_text_array.append(one_day_array_data[:,j,i+k])
                 #print(one_text_array)
-                data_x.append(one_text_array)    
-    x2 = []
-    for i in range((num_codes-len(record))*(num_ticks-windowsize+1)):
+                x2.append(one_text_array)    
+    data_x = []
+    for i in range(len(codes_record)*(num_ticks-windowsize+1)):
         x1 = []
         for j in range(windowsize-1):
             for k in range(num_tag):
-                x1.append(data_x[i][j][k])
-        x2.append(x1)
-    train_x = np.array(x2)
+                x1.append(x2[i][j][k])
+        data_x.append(x1)
+    # train_x = np.array(x2)
     #for y
     data_y = []
     l = 0
     for j in range(num_codes):
-        if j in record:
+        if codes_index[j] not in codes_record:
             l += 1
             print(l)
         else:
             for i in range(5,(num_ticks-windowsize+1)+5):
                 one_output_array = one_day_array_data[:,j,i]
                 data_y.append(one_output_array)
-    train_y = np.array(data_y)
-    print(train_x.shape)
-    print(train_y.shape)
-    np.save(path + str(date) + 'w2v_x', train_x)
-    np.save(path + str(date) + 'w2v_y', train_y)
+    # train_y = np.array(data_y)
+    # np.save(path + str(date) + 'w2v_x', train_x)
+    # np.save(path + str(date) + 'w2v_y', train_y)
+    # print(codes_record)
+    # print(type(codes_record[0]))
+    x = np.array(data_x)
+    y = np.array(data_y)
+    print(x.shape)
+    print(y.shape)
+    return codes_record, x, y
 
 def fullfill_data(array_data):
     num_codes, num_ticks = array_data.shape
@@ -124,5 +136,4 @@ def fullfill_data(array_data):
             array_data[i, :] = np.nan
     return array_data
 
-if __name__ == "__main__":
-    read_day_tick_data(20171030)
+
