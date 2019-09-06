@@ -168,7 +168,7 @@ def read_codes_index():
     return codes_index  
 
 def save_day_tick_data(date,codes_index):
-    path = '/data/dataDisk1/mulan/pre_data_201811/'
+    path = '/data/dataDisk1/mulan/pre_data_201901/'
     tag_all = ['last', 'bid1', 'ask1', 'bid_vol1', 'bid_vol2', 'bid_vol3', 'bid_vol4', 'bid_vol5', 'bid_vol6',
                'bid_vol7', 'bid_vol8', 'bid_vol9','bid_vol10', 'ask_vol1', 'ask_vol2', 'ask_vol3', 'ask_vol4',
                'ask_vol5', 'ask_vol6', 'ask_vol7', 'ask_vol8', 'ask_vol9', 'ask_vol10', 'totoff', 'totbid',
@@ -233,7 +233,8 @@ def save_day_tick_data(date,codes_index):
     # return codes_record
 
 def read_day_tick_data(date, codes_index):
-    path = '/data/dataDisk1/mulan/pre_data4/'
+    path = '/data/dataDisk1/mulan/pre_data_201901/'
+    path1 = '/data/dataDisk1/mulan/middle_data_201901/'
     tag_all = ['last', 'bid1', 'ask1', 'bid_vol1', 'bid_vol2', 'bid_vol3', 'bid_vol4', 'bid_vol5', 'bid_vol6',
                'bid_vol7', 'bid_vol8', 'bid_vol9','bid_vol10', 'ask_vol1', 'ask_vol2', 'ask_vol3', 'ask_vol4',
                'ask_vol5', 'ask_vol6', 'ask_vol7', 'ask_vol8', 'ask_vol9', 'ask_vol10', 'totoff', 'totbid',
@@ -282,12 +283,14 @@ def read_day_tick_data(date, codes_index):
     list_y = list_y[:(num_codes-l)*(num_ticks-windowsize),:]
     print(list_x.shape)
     print(list_y.shape)
-    return codes_record, list_x, list_y
+    np.save(path1 + str(date) + '_x',list_x)
+    np.save(path1 + str(date) + '_y',list_y)
+    np.save(path1 + str(date) + '_codes',codes_record)
     
 
 if __name__ == "__main__":
     codes_index = read_codes_index()
-    date_list = estab_day_list(20181126, 20181130)
+    date_list = estab_day_list(20190128, 20190128)
     data_path = '/data/remoteDir/server_200/mem_data/'
     for date in date_list:
         print(date)
@@ -300,3 +303,4 @@ if __name__ == "__main__":
             print(str(date) + 'not exit')
         else:
             save_day_tick_data(date, codes_index)
+            # read_day_tick_data(date, codes_index)

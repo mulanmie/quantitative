@@ -6,9 +6,10 @@ import re
 import pandas as pd
 # from word2vec_datalib import read_day_tick_data
 from estab_day_list import estab_day_list 
+from sklearn import preprocessing
 
 from keras.models import Sequential
-from keras.layers import Dense, Activation, LeakyReLU
+from keras.layers import Dense, Activation, LeakyReLU, BatchNormalization
 from keras.callbacks import EarlyStopping
 from data_lab import *
 import matplotlib.pyplot as plt
@@ -72,10 +73,10 @@ class embedding_model:
         self.weight = None
 
     def establish(self, x_dim, y_dim):
-        self.model.add(Dense(14, input_dim=x_dim, name='dense_1'))
-        self.model.add(BatchNormalization())
+        # self.model.add(BatchNormalization(axis=1, input_shape =(x_dim,)))
+        self.model.add(Dense(20, input_dim = (x_dim), name='dense_1'))
         self.model.add(LeakyReLU(alpha=0.3))
-        self.model.add(Dense(units=y_dim, name='dense_2'))
+        self.model.add(Dense(units=y_dim, name='dense_3'))
         # self.model.add(LeakyReLU(alpha=0.05))
         self.model.compile(loss='mse',
                            optimizer='Adam',
@@ -84,7 +85,17 @@ class embedding_model:
 
     def train(self, train_x, train_y):
         early_stopping = EarlyStopping(monitor='val_loss', patience=2)
-        self.model.fit(train_x, train_y, epochs=10, batch_size=64, validation_split=0.2, callbacks=[early_stopping])
+        self.model.fit(train_x, train_y, epochs=1, batch_size=64, validation_split=0.2, callbacks=[early_stopping])
+        # print(self.model.get_weights()[0].shape)
+        # print(self.model.get_weights()[1].shape)      
+        # print(self.model.get_weights()[2].shape)
+        # print(self.model.get_weights()[3].shape)
+        # print(self.model.get_weights()[4].shape)
+        # print(self.model.get_weights()[5].shape)
+        # print(self.model.get_weights()[6].shape)
+        # print(self.model.get_weights()[7].shape)
+        # print(self.model.get_weights()[8].shape)
+
         self.weight = self.model.get_weights()[2].T
 
          # self.model.save_weights('my_model_weights.h5')
@@ -92,8 +103,9 @@ class embedding_model:
     def predict(self, test_x):
         return self.model.predict(test_x)
 
-def read_day_tick_data(date, codes_index):
-    path = '/data/dataDisk1/mulan/pre_data_201812/'
+def read_day_tick_data(path,date, codes_index):
+    # min_max_scaler = preprocessing.MinMaxScaler(feature_range=(0,1))
+    # path = '/data/dataDisk1/mulan/pre_data_201811/'
     tag_all = ['last', 'bid1', 'ask1', 'bid_vol1', 'bid_vol2', 'bid_vol3', 'bid_vol4', 'bid_vol5', 'bid_vol6',
                'bid_vol7', 'bid_vol8', 'bid_vol9','bid_vol10', 'ask_vol1', 'ask_vol2', 'ask_vol3', 'ask_vol4',
                'ask_vol5', 'ask_vol6', 'ask_vol7', 'ask_vol8', 'ask_vol9', 'ask_vol10', 'totoff', 'totbid',
@@ -115,6 +127,7 @@ def read_day_tick_data(date, codes_index):
             l += 1
             # print(l)
         else:
+            # data_array = min_max_scaler.fit_transform(data_array)
             codes_record.append(codes_index[i])
             #for x
             for j in range(num_ticks-windowsize):
@@ -144,10 +157,10 @@ def read_day_tick_data(date, codes_index):
     print(list_y.shape)
     return codes_record, list_x, list_y
 
-def fill_zero(date_list):
-    path1 = '/data/dataDisk1/mulan/pre_data_201812/'
-    path2 = '/data/dataDisk1/mulan/final_data2/'
-    path3 = '/data/dataDisk1/mulan/final_data3/'
+def fill_zero(path1, path2, path3, date):
+    # path1 = '/data/dataDisk1/mulan/pre_data_201903/'
+    # path2 = '/data/dataDisk1/mulan/final_data6/'
+    # path3 = '/data/dataDisk1/mulan/final_data7/'
     tag_all = ['last', 'bid1', 'ask1', 'bid_vol1', 'bid_vol2', 'bid_vol3', 'bid_vol4', 'bid_vol5', 'bid_vol6',
                'bid_vol7', 'bid_vol8', 'bid_vol9','bid_vol10', 'ask_vol1', 'ask_vol2', 'ask_vol3', 'ask_vol4',
                'ask_vol5', 'ask_vol6', 'ask_vol7', 'ask_vol8', 'ask_vol9', 'ask_vol10', 'totoff', 'totbid',
@@ -159,11 +172,12 @@ def fill_zero(date_list):
     codes_index = col.index.tolist()       
     num_codes = len(codes_index)
     num_tag = len(tag_all)
-    num_tag1 = 14
+    num_tag1 = 20
     num_ticks = 482
     windowsize = 11
     list_x = np.zeros((num_codes*(num_ticks-windowsize),num_tag1))
     weight = np.load(path2 + str(date) +'_weights.npy')
+    print(date)
     for i,code in enumerate(codes_index):
         read_path = os.path.join(path1, code + '_' + str(date) + '.npy')
         data_array = np.load(read_path)
@@ -188,17 +202,23 @@ if __name__ == '__main__':
     # path2 = '/data/dataDisk1/mulan/work/work1/20171030w2v_y.npy'
     # x = np.load(path1)
     # y = np.load(path2)
-    date_list = estab_day_list(20181224, 20181228)
+    # date_list = estab_day_list(20181106, 20181106)
+    # data_path = '/data/remoteDir/server_200/mem_data/'
+    # path1 = '/data/dataDisk1/mulan/pre_data_201811/'
+    # path2 = '/data/dataDisk1/mulan/final_data2/'
+    # path3 = '/data/dataDisk1/mulan/final_data3/'
+    date_list = estab_day_list(20190201, 20190231)
     data_path = '/data/remoteDir/server_200/mem_data/'
-    path1 = '/data/dataDisk1/mulan/final_data1/'
-    path2 = '/data/dataDisk1/mulan/final_data2/'
+    path1 = '/data/dataDisk1/mulan/pre_data_201902/'
+    path2 = '/data/dataDisk1/mulan/final_data6/'
+    path3 = '/data/dataDisk1/mulan/final_data7/'
     stock_code_path = '/data/remoteDir/server_200/mem_data'
     col_path = os.path.join(stock_code_path, '.index/code.csv')
     col = pd.read_csv(col_path, dtype={'stock_code': str}).set_index('stock_code')['idx']
     codes_index = col.index.tolist()       #record the location of codes having Nan
     # date_codes = []
     for date in date_list:
-        year = str(date // 10000).zfill(4)
+        year = str(date // 10000).zfill(4) 
         month = str(date // 100 % 100).zfill(2)
         day= str(date% 100).zfill(2)    
         path_day = os.path.join(data_path,year,month,day,'open')
@@ -206,46 +226,36 @@ if __name__ == '__main__':
             flag = 0
             print(str(date) + 'not exit')
         else:
-            codes_record, x, y = read_day_tick_data(date,codes_index)
+            codes_record, x, y = read_day_tick_data(path1,date,codes_index)
             num_codes = len(codes_index)
             windowsize = 10
             num_ticks = 471
             num_tag = 28
-            num_tag_jiangwei =14
+            num_tag_jiangwei =20
             embedding = embedding_model()
             embedding.establish(num_tag*windowsize, num_tag)
             embedding.train(x, y)
+            np.save(path2 + str(date) + '_codes', codes_record)
+            print(embedding.weight)  
+            np.save(path2 + str(date) + '_weights', embedding.weight) #weight(28,14)
+            fill_zero(path1, path2, path3, date)
     # weight = np.zeros((4802, 32))
     # for i in range(32):
     #     weight[i,i]=1
     # print(len(weight))
     # model = embedding.model.load_weights('my_model_weights.h5')
     # np.savetxt('weight.txt',weight)
-    # for i in range(10):
-    #     plt.figure(1, figsize=(15, 10))
-    #     plt.plot(np.arange(28), y[i*471][0:28], c='red')
-    #     plt.title(str(i)+'_real', fontsize=40)
-    #     plt.savefig(str(i)+'_real')
-    #     plt.close(1)
-    #     x_trans = trans_to_low_dim(y[i*470][0:28], embedding.weight)
-    #     plt.figure(2, figsize=(15, 10))
-    #     plt.plot(np.arange(14), x_trans, c='blue')
-    #     plt.title(str(i)+'_real' + '_trans', fontsize=40)
-    #     plt.savefig(str(i)+'_real' + '_trans')
-    #     plt.close(2)
-            # result_x = np.zeros((num_codes*num_ticks,num_tag_jiangwei))
-            # l = 0
-            # for i in range(num_codes):
-            #     if codes_index[i] not in codes_record:
-            #         l += 1
-            #         print(l)
-            #     else:
-            #         for j in range(num_ticks):
-            #             x_trans = trans_to_low_dim(y[(i-l)*num_ticks+j][0:num_tag], embedding.weight)
-            #             result_x[(i-l)*num_ticks,:] = x_trans[:]
-            # np.save(path1 + str(date),result_x[:len(codes_record)*num_ticks,:])
-            np.save(path2 + str(date) + '_codes', codes_record)
-            print(embedding.weight)  
-            np.save(path2 + str(date) + '_weights', embedding.weight) #weight(28,14)
-            fill_zero(date)
-    
+    for i in range(10):
+        plt.figure(1, figsize=(15, 10))
+        plt.plot(np.arange(28), y[i*471][0:28], c='red')
+        plt.title(str(i)+'_real', fontsize=40)
+        plt.savefig(str(i)+'_real')
+        plt.close(1)
+        x_trans = trans_to_low_dim(y[i*471][0:28], embedding.weight)
+        plt.figure(2, figsize=(15, 10))
+        plt.plot(np.arange(num_tag_jiangwei), x_trans, c='blue')
+        plt.title(str(i)+'_real' + '_trans', fontsize=40)
+        plt.savefig(str(i)+'_real' + '_trans')
+        plt.close(2)
+
+

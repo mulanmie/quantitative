@@ -3,7 +3,7 @@ os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 from keras.models import Sequential, Model
 from keras.layers import Dense, Activation, LeakyReLU, Conv1D, GlobalAveragePooling1D, MaxPooling1D, Dropout, \
-    BatchNormalization, LSTM, Input, concatenate, Lambda
+    BatchNormalization, LSTM, Input, concatenate, Lambda, GlobalMaxPooling1D
 from keras.callbacks import EarlyStopping
 from data_lab import *
 import matplotlib.pyplot as plt
@@ -16,10 +16,10 @@ from keras.backend import expand_dims
 from random import sample
 from estab_day_list import *
 
-# config = tf.ConfigProto(gpu_options=tf.GPUOptions(allow_growth=True))
-# sess = tf.Session(config=config)
+config = tf.ConfigProto(gpu_options=tf.GPUOptions(allow_growth=True))
+sess = tf.Session(config=config)
 
-path = '/data/dataDisk1/mulan/final_data3'
+path = '/data/dataDisk1/mulan/final_data7'
 path2 = '/data/dataDisk1/mulan/label'
 
 def read_day_universe_stock(date):
@@ -65,9 +65,9 @@ def get_samples(path, path2, day_begin, day_end, time_step):
             i += 1
 
     # mem_data = np.vsplit(mem_data, 3627)
-    mem_data = mem_data.reshape(3627, 471, 14, mem_data.shape[2])
+    mem_data = mem_data.reshape(3627, 471, 20, mem_data.shape[2])
     num_codes = len(list(codes_share.keys()))
-    X = [np.zeros((num_codes*(mem_data.shape[3] - time_step + 1 - 2), 471, 14)) for i in range(time_step)]
+    X = [np.zeros((num_codes*(mem_data.shape[3] - time_step + 1 - 2), 471, 20)) for i in range(time_step)]
     Y = np.zeros((num_codes*(mem_data.shape[3] - time_step + 1 - 2), time_step, 1))
     for i0,code in enumerate(list(codes_share.keys())):
         for i in range(mem_data.shape[3] - time_step + 1 - 2):
@@ -75,17 +75,17 @@ def get_samples(path, path2, day_begin, day_end, time_step):
                 X[j][i0*(mem_data.shape[3] - time_step + 1 - 2)+i,:,:] = mem_data[code, :,:, i+j] 
                 Y[i0*(mem_data.shape[3] - time_step + 1 - 2)+i, j, 0] = label_data[int(np.argwhere(codes_index1 == codes_share[code]))][i+j+2] if not\
                     np.isnan(label_data[int(np.argwhere(codes_index1 == codes_share[code]))][i+j+2]) else 0
-    np.save('/data/dataDisk1/mulan/x1', X)
-    np.save('/data/dataDisk1/mulan/y1', Y)
+    np.save('/data/dataDisk1/mulan/x_4_4', X)
+    np.save('/data/dataDisk1/mulan/y_4_4', Y)
 
 
-def generate_arrays_from_files(path, path2, day_begin, day_end, time_step, batch_size=32):
+def generate_arrays_from_files(path, path2, day_begin, day_end, time_step, batch_size=128):
     day_list = estab_day_list(day_begin, day_end)
     # print(day_list)
     label_data = get_lab(path2, start=str(day_begin), end=str(day_end)).values
     codes_index1 = label_data[:, 0]  # array
     label_data = label_data[:, 1:]
-    #label_data =np.delete(label_data, 2, axis=1)
+    # label_data =np.delete(label_data, 2, axis=1)
     # min_max_scaler = preprocessing.MinMaxScaler(feature_range=(-1,1))
     # label_data = min_max_scaler.fit_transform(label_data.T).T
     # print(label_data)
@@ -95,7 +95,16 @@ def generate_arrays_from_files(path, path2, day_begin, day_end, time_step, batch
     # num_codes = array_data.shape[0]
     for j, code in enumerate(codes_index2.keys()):
         if code in codes_index1:
-            codes_share[j] = code   
+            codes_share[j] = code
+
+    # date_list1 = []
+    # for i,date in enumerate(day_list):
+    #     path_data = path + '/' + str(date) + '.npy'
+    #     if not os.path.exists(path_data):
+    #         continue
+    #     else:
+    #         date_list1.append(day_list[i])
+            
     i = 0
     for date in day_list:
         if date == 20181105:
@@ -110,16 +119,14 @@ def generate_arrays_from_files(path, path2, day_begin, day_end, time_step, batch
                 mem_data = np.dstack((mem_data, np.load(path_data)))
             i += 1
 
-    mem_data = mem_data.reshape(3627, 471, 14, mem_data.shape[2])
-    X = [np.zeros((batch_size, 471, 14)) for i in range(time_step)]
+    mem_data = mem_data.reshape(3627, 471, 20, mem_data.shape[2])
+    X = [np.zeros((batch_size, 471, 20)) for i in range(time_step)]
     Y = np.zeros((batch_size, time_step, 1))
     i0 = 0
     while True:
         code = sample(list(codes_share.keys()), 1)[0]
-        #print(mem_data.shape[3])
         for i in range(mem_data.shape[3] - time_step + 1 - 2):
             for j in range(time_step):
-                # print(i+j+2)
                 X[j][(i0*(mem_data.shape[3] - time_step + 1 - 2)+i)%batch_size,:,:] = mem_data[code, :,:, i+j] 
                 Y[(i0*(mem_data.shape[3] - time_step + 1 - 2)+i)%batch_size, j, 0] = label_data[int(np.argwhere(codes_index1 == codes_share[code]))][i+j+2] if not\
                     np.isnan(label_data[int(np.argwhere(codes_index1 == codes_share[code]))][i+j+2]) else 0
@@ -147,7 +154,7 @@ class conv1D_lstm_model:
         shared_maxpool_layer = MaxPooling1D(3)
         shared_conv_layer3 = Conv1D(32, 3, activation='relu', kernel_initializer='random_normal')
         shared_conv_layer4 = Conv1D(32, 3, activation='relu', kernel_initializer='random_normal')
-        shared_avepool_layer = GlobalAveragePooling1D()
+        shared_avepool_layer = GlobalMaxPooling1D()
         inputa = []
         x = []
         for i in range(day_dim):
@@ -165,7 +172,7 @@ class conv1D_lstm_model:
 
         x2 = concatenate(x, axis=1)
         # print(x2)
-        x2 = LSTM(32, return_sequences=True)(x2)
+        x2 = LSTM(16, return_sequences=True)(x2)
         y = LSTM(1, return_sequences=True)(x2)
         # x2 = Dropout(0.5)(x2)
         # y =  Dense(1, activation='sigmoid')(x2)
@@ -178,7 +185,7 @@ class conv1D_lstm_model:
 
     def train(self, generator):
         # self.model.fit(train_x, train_y, epochs=5, batch_size =  32)
-        self.model.fit_generator(generator, steps_per_epoch=50, epochs=50, verbose=1, callbacks=None,
+        self.model.fit_generator(generator, steps_per_epoch=50, epochs=100, verbose=1, callbacks=None,
                                  validation_data=None, \
                                  validation_steps=None, class_weight=None, max_queue_size=10, workers=1,
                                  use_multiprocessing=False, initial_epoch=0)
@@ -193,12 +200,12 @@ if __name__ == '__main__':
     # for i in range(5):
     #     train_x.append(np.random.rand(1000, 480, 28))
     
-    generator = generate_arrays_from_files(path, path2, 20190201, 20190231, 5)
+    generator = generate_arrays_from_files(path, path2, 20190301, 20190331, 5)
     conv_lstm = conv1D_lstm_model()
-    conv_lstm.establish(5, 471, 14)
+    conv_lstm.establish(5, 471, 20)
     conv_lstm.train(generator)
-    test_x = list(np.load('/data/dataDisk1/mulan/x3.npy'))
-    test_y = np.load('/data/dataDisk1/mulan/y3.npy')[:, 4, 0]
+    test_x = list(np.load('/data/dataDisk1/mulan/x_4_4.npy'))
+    test_y = np.load('/data/dataDisk1/mulan/y_4_4.npy')[:, 4, 0]
     pred_y = conv_lstm.predict(test_x)[:, 4, 0]
     p1, p2 = cal_corr(test_y, pred_y)
     print(p1, p2)
@@ -208,8 +215,7 @@ if __name__ == '__main__':
     plt.legend(labels=['real', 'predict'])
     plt.savefig(str() + '_' + str() + 'real_predict')
     plt.close(1)
-    print('local 02 predict 03')
     '''
-    get_samples(path, path2, 20190101, 20190131, 5)
+    get_samples(path, path2, 20190201, 20190231, 5)
     '''
     
